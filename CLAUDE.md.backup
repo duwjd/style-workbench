@@ -1,0 +1,380 @@
+# CLAUDE.md — Style Workbench Project Guide
+
+> 이 문서는 **Claude Code**가 이 프로젝트에서 작업할 때 항상 먼저 읽어야 할 지침서다. PRD / TECH_STACK / SYSTEM_ARCHITECTURE / DESIGN_SYSTEM 의 핵심을 한 자리에 압축해 두었다. 자세한 의도/근거는 각 원본 문서를 참조한다.
+
+---
+
+## 0. Project at a glance
+
+- **이름**: Style Workbench (코드네임)
+- **목적**: 디자이너가 gemgem.biz용 "Style"(텍스트→이미지→비디오 prompt 패키지)을 24h → 6h 시간 안에 만들 수 있는 admin 도구.
+- **1차 사용자**: 디자이너 (스타일 제작 / 콘텐츠 기획자)
+- **부모 문서**:
+  - `STYLE_WORKBENCH_PRD.md` — 무엇을 / 왜
+  - `TECH_STACK.md` — 어떤 기술
+  - `SYSTEM_ARCHITECTURE.md` — 어떻게 (백엔드/도메인)
+  - `DESIGN_SYSTEM.md` — UI 토큰/컴포넌트
+- **레퍼런스 자산**: `prompt_optimizer/` (별도 폴더, 자산만 import 대상)
+
+---
+
+## 1. 작업 시작 전 반드시 확인
+
+1. 변경 범위가 어느 layer에 속하는가? (api / services / domain / engine / adapters / infra / FE features)
+2. 새 의존성이 필요한가? → `TECH_STACK.md` §1, §2 의 매트릭스 안에 있는가? 없으면 ADR 필요.
+3. UI 변경인가? → `DESIGN_SYSTEM.md` §2 컬러 토큰, §5 컴포넌트 인벤토리 먼저 확인.
+4. 새 외부 모델 추가인가? → 반드시 `adapters/`에 `ModelAdapter` 구현, `registry.py`에 등록.
+5. DB 변경인가? → Alembic 마이그레이션 작성.
+
+---
+
+## 2. 디렉토리 구조 (저장소 루트)
+
+```
+style-workbench/
+├── backend/
+│   └── src/style_workbench/   # 패키지 루트 (반드시 src layout)
+│       ├── api/                # FastAPI 라우터 (얇음)
+│       ├── services/           # 유스케이스 오케스트레이션
+│       ├── domain/             # 순수 비즈니스 로직 (외부 의존 X)
+│       ├── engine/             # DAG 실행 엔진
+│       ├── adapters/           # 외부 모델 어댑터 (vendor 격리)
+│       ├── infra/              # DB / S3 / 큐
+│       │   ├── db/
+│       │   ├── repositories/
+│       │   ├── storage/
+│       │   └── queue/
+│       ├── core/               # config, logging, errors, ids
+│       ├── prompts/            # AI prompt 템플릿 모듈
+│       └── main.py
+├── frontend/
+│   └── src/
+│       ├── routes/             # React Router 7 selectors
+│       ├── features/           # 도메인 단위 컴포넌트
+│       ├── api/                # axios 래퍼
+│       ├── stores/             # Zustand
+│       ├── components/ui/      # shadcn/ui 카피
+│       ├── lib/
+│       └── styles/
+├── docs/                       # PRD, 아키텍처, 디자인 시스템 사본
+├── docker-compose.yml          # postgres + minio + (Phase2)redis + backend + frontend
+├── .github/workflows/
+├── README.md
+└── CLAUDE.md                   # 이 파일
+```
+
+> **새 모듈을 만들 때**: 위 트리에 자리가 없으면, 추가하기 전에 의도를 PR description에 적고 검토 받기.
+
+---
+
+## 3. 코딩 컨벤션
+
+### 3.1 Backend (Python)
+
+- Python **3.12**.
+- 의존성/락: **uv**. `uv sync`, `uv add`, `uv lock`. `pip install` 직접 사용 금지.
+- 포맷 / 린트: **Ruff** (단일 도구, isort+black 대체). 커밋 전 `ruff format && ruff check --fix`.
+- 타입: **mypy strict**. `Any` 남발 금지. 외부 SDK 응답은 `cast` 또는 `pydantic.TypeAdapter` 변환.
+- async 우선: 라우터/서비스/저장소 모두 async. blocking I/O는 `asyncio.to_thread`로 격리.
+- 예외: 도메인 예외는 `core/errors.py` 정의, API 핸들러에서 HTTP 매핑.
+- 로그: `structlog.get_logger(__name__)`. `print` 금지.
+- 임포트 방향: api → services → domain ← infra (절대 역방향 금지).
+
+### 3.2 Frontend (TypeScript / React)
+
+- React **19**, TS **5.6+**, strict 모드.
+- 함수형 컴포넌트만. 한 컴포넌트 = 한 파일.
+- 파일명: PascalCase 컴포넌트는 `PascalCase.tsx`, 훅은 `useCamelCase.ts`, 유틸은 `kebab-case.ts`.
+- 스타일: Tailwind 토큰 클래스만 사용. **임의 hex/px 금지** (DESIGN_SYSTEM §9).
+- 폼: React Hook Form + Zod schema. shadcn/ui `Form` 사용.
+- API 호출: `src/api/*.ts` 의 axios 인스턴스 + TanStack Query 훅.
+- 상태: 서버 상태 = TanStack Query, 로컬 UI 상태 = Zustand, 폼 상태 = RHF.
+- 컴포넌트 응답형: 1280px 미만은 안내 메시지("데스크톱 권장"). 모바일 미지원.
+
+### 3.3 공통
+
+- 커밋 메시지: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`).
+- PR 단위: 작게. layer 하나 + 그에 대응하는 테스트.
+- 코드 코멘트: "왜"만 쓰고 "무엇"은 코드로. TODO에는 이슈 번호.
+
+---
+
+## 4. 데이터 모델 핵심 (반드시 알아야 함)
+
+```
+Style = {
+  id, name, concept, vertical, tags, status, current_version,
+  versions[].dag = { nodes[], edges[], variables[] }
+}
+```
+
+- **Style은 DAG**. list가 아니다. 단계 수와 입력 종류가 가변. → React Flow의 NodeId/EdgeId 와 1:1 매핑.
+- **versioning**: DAG 변경 = 새 버전. 메타(name, status, tags) 변경은 in-place.
+- **variables**: `{name}` 같은 placeholder. 운영 시 사용자 데이터로 치환. `domain/prompt/template.py` 가 안전 치환 담당.
+
+자세한 schema는 `SYSTEM_ARCHITECTURE.md` §4. ORM 모델 변경 시 항상 Alembic 마이그레이션 작성.
+
+---
+
+## 5. AI 모델 사용 규칙 (자기 확증 편향 차단)
+
+- **Variant Generator**: `claude-sonnet-4-6` — Style 변주 생성 전용
+- **Step Evaluator**: `claude-opus-4-6` — 결과물 평가 전용 (Vision)
+- **두 역할은 절대 같은 system prompt / 같은 호출 안에 섞지 않는다.**
+- Evaluator는 **원본 prompt를 받지 않는다**. brief의 요약만 본다.
+- 통과/탈락 임계값 판정은 Python 코드. Claude는 점수만 산출.
+- 모든 외부 모델 호출은 `adapters/` 의 `ModelAdapter` 인터페이스를 거친다. 직접 SDK 호출 금지.
+
+---
+
+## 6. UI 작업 시 반드시 따를 것
+
+1. **컬러**: `var(--color-*)` 또는 Tailwind 매핑 클래스만. hex 직접 사용 금지.
+2. **노드 색상 코딩**: text=teal, image=pink, video=amber, composition=lavender. 일관성 유지.
+3. **다크 기본**: 결과물 미디어가 정확히 보여야 하므로 다크 모드가 first.
+4. **shadcn/ui 베이스**: 새 기본 컴포넌트는 `npx shadcn@latest add <name>` 후 토큰 매핑 수정.
+5. **DAG 에디터**: 항상 `@xyflow/react` 사용. 자체 캔버스 구현 금지.
+6. **키보드 단축키**: Figma 컨벤션 (Space+drag, Cmd+S/Enter/D, ?). DESIGN_SYSTEM §6.2.
+7. **접근성**: focus-visible ring 필수. 색에만 의존하는 정보 전달 금지.
+
+---
+
+## 7. 테스트 전략
+
+### Backend
+- **unit**: domain / engine / adapters (HTTP mock 사용). 빠르게 실행.
+- **integration**: api + services + 실제 DB (testcontainers-postgres 또는 docker-compose).
+- **golden**: prompt 회귀 — `tests/golden/` 의 입력 → 응답 fixture 비교. Variant Generator / Evaluator 는 필수.
+- 커버리지 목표: domain 90%+, services 70%+, api 50%+ (smoke).
+
+### Frontend
+- **unit**: hooks, lib utils — Vitest.
+- **component**: features 컴포넌트 — Testing Library + MSW (API mock).
+- **e2e**: Playwright. Phase 1은 happy path 1~2개만 (브리프 → 변주 → 실행 → 채택).
+
+### CI 파이프라인 (GitHub Actions)
+- `backend-ci.yml`: ruff → mypy → pytest (unit + integration)
+- `frontend-ci.yml`: eslint → tsc --noEmit → vitest → build
+- `e2e.yml`: pull_request에서만, docker-compose 띄우고 playwright
+
+---
+
+## 8. 환경 변수 (필수 키)
+
+```bash
+# .env.example
+DATABASE_URL=postgresql+asyncpg://workbench:workbench@localhost:5432/workbench
+S3_ENDPOINT_URL=http://localhost:9000
+S3_BUCKET=style-workbench
+S3_ACCESS_KEY=minio
+S3_SECRET_KEY=miniopass
+
+# AI vendors
+ANTHROPIC_API_KEY=          # Claude (variant gen + evaluation)
+OPENAI_API_KEY=             # gpt-5.4 등 텍스트 모델
+REPLICATE_API_TOKEN=        # 이미지·영상 모델 통합 게이트웨이 (nano-banana-pro, kling, seedance 등)
+
+# App
+WORKBENCH_API_KEY=local-dev-key   # Phase 1 단순 인증
+LOG_LEVEL=INFO
+ENVIRONMENT=development            # development|staging|production
+```
+
+운영 환경에서는 AWS Secrets Manager 사용. `.env`는 절대 커밋 금지.
+
+---
+
+## 9. 자주 하는 작업 — 빠른 가이드
+
+### 9.1 새 모델 추가
+
+대부분의 경우 **새 어댑터는 필요 없다**. 어댑터는 3개(Claude / OpenAI / Replicate) 고정.
+
+**이미지/영상 모델 추가 (가장 흔한 케이스)**:
+1. `model_profiles` 테이블에 시드 추가 — `provider="replicate"`, `replicate_model_id="<owner>/<model>"`
+2. `core/pricing.py` 에 단가 추가
+3. (선택) FE의 ModelPicker에 노출 라벨 추가
+→ ReplicateAdapter는 손대지 않음.
+
+**텍스트 모델 추가** (gpt 외 다른 OpenAI 호환 모델):
+1. `model_profiles` 시드 추가 (provider="openai")
+2. 단가 추가
+3. OpenAIAdapter는 보통 그대로 동작 (chat completions 인터페이스 동일하면)
+
+**완전히 새로운 vendor가 등장한 경우 (드문 케이스)**:
+1. `adapters/<vendor>.py` 에 `ModelAdapter` 상속 클래스
+2. `adapters/registry.py`에 `provider → 클래스` 매핑 등록
+3. `tests/unit/adapters/test_<vendor>.py` 추가 (HTTP mock)
+4. 이 결정은 **ADR**로 기록 — 어댑터 추가는 의존성 증가이므로
+
+### 9.2 새 노드 타입 추가 (예: audio)
+1. `domain/style/entity.py` 의 `NodeType` enum 확장
+2. `engine/node_runners/audio_node.py` 작성
+3. FE: `features/style-builder/nodes/AudioNode.tsx` + 색상 토큰 추가
+4. Evaluator prompt 추가 (`prompts/evaluator_audio.py`)
+5. eval 차원 정의 (`domain/evaluation/criteria.py`)
+
+### 9.3 평가 prompt 튜닝
+1. `prompts/evaluator_<type>.py` 수정
+2. `tests/golden/eval_<type>/` 의 fixture로 회귀 — `pytest -k golden`
+3. 점수 ±0.05 초과 변동이면 fail. 일부러 변경했다면 fixture 업데이트 + PR 설명.
+
+### 9.4 새 API 엔드포인트
+1. Pydantic 입출력 모델을 `api/schemas/` 에 정의
+2. `api/<resource>.py` 라우터 (얇게 — 검증, 의존성, 응답만)
+3. `services/<resource>_service.py` 에 유스케이스
+4. 테스트: API 레벨 1개 + 서비스 단위 테스트
+5. 응답은 snake_case (FE에서 변환)
+
+---
+
+## 10. 보안 / 비용 가드레일
+
+- 비디오 모델 호출은 비용이 큼 (Style 1개 회귀 ~8만원). **`run_service.py`에 `cost_budget_won` 옵션을 두고 초과 시 abort**.
+- 평가 호출 횟수도 누적. 한 Run에 노드 N × 시도 ≤ 3 × 평가 1회. 초과 시 알림.
+- 외부 모델 응답에 PII 포함 가능 — 로그는 hash/요약만, 원문은 S3 object_url로만 참조.
+- 사용자가 업로드한 사진은 데이터 보존 정책에 따라 90일 후 만료. `storage/lifecycle.py` 에 정책 코드.
+
+---
+
+## 11. 절대 금지 사항
+
+- ✗ Variant Generator와 Step Evaluator를 같은 system prompt / 같은 호출에 섞기
+- ✗ 외부 SDK를 services/api에서 직접 호출 (반드시 adapters 통과)
+- ✗ Tailwind 임의 hex/px (토큰만)
+- ✗ JSON 파일 기반 데이터 저장 (prompt_optimizer 패턴 답습 — Phase 1부터 PostgreSQL)
+- ✗ DAG 위상 검증/사이클 감지 누락 (Style 저장 시 항상 검증)
+- ✗ placeholder `{name}` 같은 변수 LLM 치환 가능성 무시 (Evaluator/Generator prompt에서 항상 명시적 보호)
+- ✗ Backend가 운영 시스템에 직접 등록 (Export Adapter를 통해서만, 운영팀 합의된 포맷으로)
+- ✗ 디자이너 검수 없이 Style을 자동 approve (Phase 3 이전엔 항상 사람 verdict)
+
+---
+
+## 12. 핵심 코딩 패턴 (스니펫)
+
+### 12.1 FastAPI 라우터 (얇은 layer)
+```python
+# api/styles.py
+from fastapi import APIRouter, Depends
+from .deps import get_style_service
+from .schemas.styles import StyleCreate, StyleResponse
+
+router = APIRouter(prefix="/api/styles", tags=["styles"])
+
+@router.post("", response_model=StyleResponse, status_code=201)
+async def create_style(
+    payload: StyleCreate,
+    service: StyleService = Depends(get_style_service),
+) -> StyleResponse:
+    style = await service.create(payload.to_domain())
+    return StyleResponse.from_domain(style)
+```
+
+### 12.2 Service 오케스트레이션
+```python
+# services/variant_service.py
+class VariantService:
+    def __init__(self, claude: ClaudeAdapter, repo: StyleRepo) -> None:
+        self.claude = claude
+        self.repo = repo
+
+    async def generate(self, brief: Brief, n: int = 5) -> list[Style]:
+        prompt = build_variant_system_prompt(brief)
+        resp = await self.claude.call(
+            model_id="claude-sonnet-4-6",
+            input=ModelInput(prompt=brief.to_user_message()),
+        )
+        styles = parse_variants(resp.content, n=n)
+        for s in styles:
+            validate_dag(s)
+            validate_variables(s)
+        return styles
+```
+
+### 12.3 React 컴포넌트 (Zustand + TanStack Query)
+```tsx
+// features/comparison/ComparisonGrid.tsx
+import { useQuery } from "@tanstack/react-query";
+import { useUiStore } from "@/stores/uiStore";
+import { runsApi } from "@/api/runs";
+
+export function ComparisonGrid({ runIds }: { runIds: string[] }) {
+  const selectedCell = useUiStore((s) => s.selectedCell);
+  const { data, isLoading } = useQuery({
+    queryKey: ["runs", runIds],
+    queryFn: () => runsApi.batchGet(runIds),
+  });
+  if (isLoading) return <GridSkeleton rows={5} />;
+  return <Grid runs={data!} selected={selectedCell} />;
+}
+```
+
+### 12.4 React Flow 커스텀 노드
+```tsx
+// features/style-builder/nodes/TextNode.tsx
+import { Handle, Position } from "@xyflow/react";
+import { cn } from "@/lib/utils";
+
+export function TextNode({ data, selected }: NodeProps<TextNodeData>) {
+  return (
+    <div
+      className={cn(
+        "w-60 rounded-lg border bg-bg-surface shadow-md",
+        "border-border-default",
+        selected && "ring-1 ring-accent-500 shadow-glow-accent"
+      )}
+    >
+      <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
+        <span className="h-2 w-2 rounded-full bg-node-text" />
+        <span className="text-h3 font-semibold">Text Generation</span>
+      </div>
+      {/* ... */}
+      <Handle type="source" position={Position.Right} className="!bg-node-text" />
+    </div>
+  );
+}
+```
+
+---
+
+## 13. 작업 순서가 헷갈릴 때
+
+1. **API 추가 작업**: schema → service → repository → api → test
+2. **새 노드 타입**: domain enum → runner → adapter (있으면) → FE 노드 컴포넌트 → 평가 prompt
+3. **UI 컴포넌트**: 디자인 토큰 매핑 → shadcn 베이스 → 자체 wrapper → storybook(있다면) → 사용처
+4. **AI prompt 변경**: golden fixture 추가 → prompt 수정 → 회귀 통과 → PR 설명에 변경 의도
+
+---
+
+## 14. 디버깅 자주 묻는 것
+
+| 증상 | 가장 흔한 원인 |
+|---|---|
+| `ImportError: domain → infra` 류 순환 | 의존 방향 위반. domain 은 어디도 import 금지 |
+| Run이 영원히 pending | BackgroundTasks 예외 삼킴 → structlog로 trace 출력 확인 |
+| Variant 생성 결과가 schema 안 맞음 | system prompt에 schema 강제 안 됨 → JSON mode + Pydantic validate |
+| 같은 입력에 평가 점수가 흔들림 | temperature 안 낮춘 것 (Evaluator는 0.0~0.2 권장) |
+| React Flow 노드 선택이 안 잡힘 | Custom 노드에 `nodrag nopan` 클래스 누락 |
+| Tailwind 색이 undefined | `tailwind.config` 의 theme.extend 에 토큰 누락 또는 v4 `@theme` 블록 누락 |
+
+---
+
+## 15. 다음에 확장될 것 (예고)
+
+- Phase 2: arq 큐 + 워커 + 회귀 batch + Test Set Manager UI
+- Phase 3: 운영 사용자 피드백 자동 수집, 평가셋 자가 보강
+- Phase 3+: 멀티테넌시, OAuth/SSO, 권한 RBAC
+
+---
+
+## 16. 의문이 생기면
+
+| 질문 | 어디 보세요 |
+|---|---|
+| "이 기능을 왜 하는가" | `STYLE_WORKBENCH_PRD.md` |
+| "어떤 라이브러리 써야 하는가" | `TECH_STACK.md` |
+| "백엔드 어디에 코드를 두는가" | `SYSTEM_ARCHITECTURE.md` §2 |
+| "이 색/간격이 맞는가" | `DESIGN_SYSTEM.md` §2~§4 |
+| "노드 추가 절차" | 본 문서 §9.2 |
+| "외부 모델 추가 절차" | 본 문서 §9.1 |
+| "지금 당장 할 일" | `GETTING_STARTED.md` |

@@ -1,0 +1,73 @@
+@theme {
+  /* Surfaces (다크 기본) */
+  --color-bg-base: #0B0D10;
+  --color-bg-canvas: #11141A;
+  --color-bg-surface: #161B22;
+  --color-bg-elevated: #1D232C;
+  --color-bg-hover: #232B36;
+  --color-bg-active: #2A3340;
+
+  /* Borders & Dividers */
+  --color-border-subtle: #1F2630;
+  --color-border-default: #2A3340;
+  --color-border-strong: #3A4554;
+
+  /* Text */
+  --color-text-primary: #E5E9F0;
+  --color-text-secondary: #A8B0BD;
+  --color-text-tertiary: #6B7280;
+  --color-text-disabled: #4B5563;
+  --color-text-on-accent: #0B0D10;
+
+  /* Brand / Accent */
+  --color-accent-50:  #F5F2FF;
+  --color-accent-100: #E8E1FF;
+  --color-accent-200: #CFC1FF;
+  --color-accent-300: #B098FF;
+  --color-accent-400: #8E70FF;
+  --color-accent-500: #6E4CF6;
+  --color-accent-600: #5934E0;
+  --color-accent-700: #4824B8;
+  --color-accent-800: #381B8C;
+  --color-accent-900: #271264;
+
+  /* Semantic */
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-error: #F87171;
+  --color-info: #60A5FA;
+
+  /* Node-type accents */
+  --color-node-text:   #2DD4BF;
+  --color-node-image:  #F472B6;
+  --color-node-video:  #FBBF24;
+  --color-node-comp:   #A78BFA;
+  --color-node-input:  #94A3B8;
+  --color-node-output: #34D399;
+
+  /* Evaluation score scale */
+  --color-eval-0: #F87171;
+  --color-eval-3: #FB923C;
+  --color-eval-5: #FBBF24;
+  --color-eval-7: #A3E635;
+  --color-eval-9: #4ADE80;
+}
+
+/* Light mode */
+[data-theme="light"] {
+  --color-bg-base: #FFFFFF;
+  --color-bg-canvas: #FAFAFB;
+  --color-bg-surface: #F4F5F7;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-hover: #ECEEF1;
+  --color-bg-active: #E1E4E9;
+
+  --color-border-subtle: #ECEEF1;
+  --color-border-default: #D8DCE3;
+  --color-border-strong: #B8BFC9;
+
+  --color-text-primary: #0B0D10;
+  --color-text-secondary: #4B5563;
+  --color-text-tertiary: #6B7280;
+  --color-text-disabled: #9CA3AF;
+}

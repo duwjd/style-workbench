@@ -1,0 +1,14 @@
+name: E2E Tests
+
+# Phase 2 예정 — 스켈레톤만 유지
+
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Placeholder
+        run: echo "E2E tests not yet implemented"
