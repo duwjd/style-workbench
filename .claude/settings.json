@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/calia/project/style-workbench/backend status)",
+      "Bash(open -a Docker)",
+      "Bash(docker info *)",
+      "Bash(uv lock *)",
+      "Bash(grep -rn \"s3_\\\\|boto3\\\\|minio\\\\|S3_ENDPOINT\\\\|S3_BUCKET\\\\|S3_ACCESS\\\\|S3_SECRET\\\\|miniodata\" backend/src backend/pyproject.toml docker-compose.yml .env.example)",
+      "Bash(echo \"--- exit: $?\")",
+      "Bash(python -c \"import replicate; print\\(dir\\(replicate\\)\\)\")",
+      "Bash(python -c \"from replicate.client import Client; print\\(Client\\)\")",
+      "Bash(python3 -c \"import json; data=json.load\\(open\\('tests/golden/variants/biz_portrait/fixture_variants.json'\\)\\); print\\(f'{len\\(data\\)} variants loaded'\\); inp=json.load\\(open\\('tests/golden/variants/biz_portrait/input.json'\\)\\); print\\('input ok:', inp['n']\\)\")"
+    ]
+  }
+}

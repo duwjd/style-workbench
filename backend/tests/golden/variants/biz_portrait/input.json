@@ -1,0 +1,8 @@
+{
+  "concept": "비즈니스 포트레이트",
+  "vertical": "portrait",
+  "tone": "professional",
+  "step_composition": ["text_generation", "image_generation"],
+  "input_kinds": ["concept"],
+  "n": 5
+}

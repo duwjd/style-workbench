@@ -53,8 +53,8 @@ style-workbench/
 │       ├── domain/             # 순수 비즈니스 로직 (외부 의존 X)
 │       ├── engine/             # DAG 실행 엔진
 │       ├── adapters/           # ← adapters/CLAUDE.md
-│       ├── infra/              # DB / S3 / 큐
-│       │   ├── db/, repositories/, storage/, queue/
+│       ├── infra/              # DB / 큐
+│       │   ├── db/, repositories/, queue/
 │       ├── core/               # config, logging, errors, ids
 │       ├── prompts/            # ← prompts/CLAUDE.md
 │       └── main.py
@@ -97,7 +97,7 @@ Style = {
 ## 5. 절대 금지 사항 (모든 작업에 적용)
 
 - ✗ Variant Generator와 Step Evaluator를 같은 system prompt / 같은 호출에 섞기
-- ✗ 외부 SDK(`anthropic`, `openai`, `replicate`, `boto3`)를 services/api에서 직접 호출
+- ✗ 외부 SDK(`anthropic`, `openai`, `replicate`)를 services/api에서 직접 호출
 - ✗ Tailwind 임의 hex/px (토큰만 — `frontend/CLAUDE.md` §디자인 토큰 매핑)
 - ✗ JSON 파일 기반 데이터 저장 (prompt_optimizer 패턴 답습 — Phase 1부터 PostgreSQL)
 - ✗ DAG 위상 검증/사이클 감지 누락 (Style 저장 시 항상 검증)
@@ -139,7 +139,41 @@ Style = {
 
 ---
 
-## 9. 의문이 생기면 — 진짜 진입점 표
+## 9. 서브에이전트 사용 원칙
+
+> **이 규칙은 §2의 "작업 시작 전 반드시 확인"보다 상위다.** Claude Code가 직접 코드를 작성하기 전에, 반드시 아래 라우팅 표에서 해당 서브에이전트를 찾아 먼저 호출해야 한다.
+
+### 9.1 핵심 규칙
+
+- **직접 구현 금지**: 코드 파일을 만들거나 수정하기 전에 반드시 올바른 서브에이전트를 호출한다.
+- **서브에이전트는 `.claude/agents/`에 정의**: 이 디렉토리 밖에서 에이전트를 즉흥 정의하지 않는다.
+- **서브에이전트 간 위임**: 한 작업이 여러 영역에 걸칠 경우, 첫 번째 에이전트가 완료 후 메인 에이전트에 보고하고 다음 에이전트를 호출한다.
+- **서브에이전트 없이 직접 구현한 코드는 `code-reviewer`가 블로커로 처리**한다.
+
+### 9.2 서브에이전트 라우팅 표
+
+| 작업 종류 | 호출할 서브에이전트 |
+|---|---|
+| FastAPI 라우터, services, domain, engine, infra, core 작업 | `backend-engineer` |
+| React 컴포넌트, 화면, DAG 노드, 폼, Zustand, TanStack Query | `frontend-engineer` |
+| Claude/OpenAI/Replicate 어댑터, model_profiles 시드, pricing 단가 | `adapter-specialist` |
+| Variant Generator / Step Evaluator system prompt, golden fixture | `prompt-engineer` |
+| PR/브랜치/스테이징 변경 검토 (read-only) | `code-reviewer` |
+
+### 9.3 서브에이전트 선택이 애매할 때
+
+1. **여러 레이어가 동시에 필요한가?** → 가장 많은 변경이 일어나는 레이어의 에이전트를 먼저 호출, 완료 후 다음 에이전트 순차 호출.
+2. **어댑터 + 서비스?** → `adapter-specialist` 먼저(인터페이스 확정) → `backend-engineer`(서비스 구현).
+3. **새 노드 타입?** → `backend-engineer`(domain enum, engine runner) → `adapter-specialist`(model_profiles) → `frontend-engineer`(노드 컴포넌트) → `prompt-engineer`(evaluator 추가).
+4. **명확히 어디에도 안 맞는다** → `code-reviewer`에게 어느 에이전트가 적합한지 먼저 물어본다.
+
+### 9.4 서브에이전트 경계 규칙
+
+각 에이전트는 자기 영역 밖의 파일을 **직접 수정하지 않는다**. 경계를 넘어야 할 때는 작업을 멈추고 메인 에이전트에게 "X 작업이 필요하다"고 보고만 한다. 이 규칙이 지켜지지 않으면 레이어 의존 방향이 무너진다.
+
+---
+
+## 10. 의문이 생기면 — 진짜 진입점 표
 
 | 질문 | 어디 보세요 |
 |---|---|

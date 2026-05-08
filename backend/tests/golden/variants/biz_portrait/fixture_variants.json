@@ -1,0 +1,143 @@
+[
+  {
+    "name": "Executive Bio Writer",
+    "tags": ["portrait", "professional", "text-only", "bio"],
+    "dag": {
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "text_generation",
+          "model": {"provider": "anthropic", "model_id": "claude-sonnet-4-6"},
+          "prompt_template": "Write a concise, professional executive biography (90-120 words) for a person whose role and field are described as: {concept}. Use a confident third-person voice. Avoid clichés. End with a single sentence about leadership philosophy.",
+          "inputs": [
+            {"source": "user_input", "role": "concept"}
+          ]
+        }
+      ],
+      "edges": [],
+      "variables": ["concept"]
+    }
+  },
+  {
+    "name": "Clean Studio Headshot",
+    "tags": ["portrait", "studio", "image-only", "minimal"],
+    "dag": {
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "image_generation",
+          "model": {"provider": "replicate", "model_id": "google/nano-banana-pro"},
+          "prompt_template": "Professional business portrait. Subject: {concept}. Studio lighting, soft key light from camera-left, subtle fill, neutral light-grey seamless backdrop, sharp eyes, shallow depth of field, mid-length crop from chest up, neutral expression, business attire.",
+          "inputs": [
+            {"source": "user_input", "role": "concept"}
+          ]
+        }
+      ],
+      "edges": [],
+      "variables": ["concept"]
+    }
+  },
+  {
+    "name": "Briefed Headshot Pipeline",
+    "tags": ["portrait", "pipeline", "text-to-image", "brief-driven"],
+    "dag": {
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "text_generation",
+          "model": {"provider": "anthropic", "model_id": "claude-sonnet-4-6"},
+          "prompt_template": "Write a one-sentence visual direction for a business portrait expressing: {concept}. Mention lighting, framing, and wardrobe. Keep it concrete and under 40 words.",
+          "inputs": [
+            {"source": "user_input", "role": "concept"}
+          ]
+        },
+        {
+          "id": "n2",
+          "type": "image_generation",
+          "model": {"provider": "replicate", "model_id": "google/nano-banana-pro"},
+          "prompt_template": "Business portrait photography. Concept: {concept}. Follow the provided visual direction. Realistic skin texture, natural color grading, sharp focus on the eyes, shallow depth of field.",
+          "inputs": [
+            {"source": "user_input", "role": "concept"},
+            {"source": "node_output:n1", "role": "visual_brief"}
+          ]
+        }
+      ],
+      "edges": [
+        {"source": "n1", "target": "n2"}
+      ],
+      "variables": ["concept"]
+    }
+  },
+  {
+    "name": "Bio + Portrait Parallel Pack",
+    "tags": ["portrait", "parallel", "bio-and-image", "linkedin-ready"],
+    "dag": {
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "text_generation",
+          "model": {"provider": "openai", "model_id": "gpt-4o"},
+          "prompt_template": "Draft a LinkedIn-style professional summary (3 short paragraphs) for the following person and role: {concept}. Use a warm but confident tone. No emojis. No hashtags.",
+          "inputs": [
+            {"source": "user_input", "role": "concept"}
+          ]
+        },
+        {
+          "id": "n2",
+          "type": "image_generation",
+          "model": {"provider": "replicate", "model_id": "google/nano-banana-pro"},
+          "prompt_template": "Modern business portrait, environmental office setting, large window soft daylight, slight smile, business-casual attire. Subject context: {concept}.",
+          "inputs": [
+            {"source": "user_input", "role": "concept"}
+          ]
+        }
+      ],
+      "edges": [],
+      "variables": ["concept"]
+    }
+  },
+  {
+    "name": "Full Brand Reel",
+    "tags": ["portrait", "video", "full-pipeline", "brand-reel"],
+    "dag": {
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "text_generation",
+          "model": {"provider": "anthropic", "model_id": "claude-sonnet-4-6"},
+          "prompt_template": "Write a cinematic, single-paragraph creative direction for a 5-second branded portrait reel for: {concept}. Specify camera move, lighting mood, wardrobe, and one defining gesture. Under 80 words.",
+          "inputs": [
+            {"source": "user_input", "role": "concept"}
+          ]
+        },
+        {
+          "id": "n2",
+          "type": "image_generation",
+          "model": {"provider": "replicate", "model_id": "google/nano-banana-pro"},
+          "prompt_template": "Cinematic business portrait still frame for a brand reel. Subject: {concept}. Warm rim light, dark moody backdrop, 35mm film look, eye contact with camera, tailored suit. Frame composed to allow subtle camera push-in.",
+          "inputs": [
+            {"source": "user_input", "role": "concept"},
+            {"source": "node_output:n1", "role": "creative_direction"}
+          ]
+        },
+        {
+          "id": "n3",
+          "type": "video_generation",
+          "model": {"provider": "replicate", "model_id": "kuaishou/kling-v2.5-turbo-pro"},
+          "prompt_template": "Animate a slow 5-second cinematic camera push-in on the subject. Subtle ambient motion in hair and fabric. Maintain identity and lighting from the source frame. Subject context: {concept}.",
+          "inputs": [
+            {"source": "user_input", "role": "concept"},
+            {"source": "node_output:n2", "role": "source_frame"},
+            {"source": "node_output:n1", "role": "creative_direction"}
+          ]
+        }
+      ],
+      "edges": [
+        {"source": "n1", "target": "n2"},
+        {"source": "n1", "target": "n3"},
+        {"source": "n2", "target": "n3"}
+      ],
+      "variables": ["concept"]
+    }
+  }
+]

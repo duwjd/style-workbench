@@ -60,7 +60,6 @@
 | AI SDK (OpenAI) | **openai** | 1.50+ | gpt-5.4 등 텍스트 모델 호출 (텍스트 단계 전용) |
 | AI SDK (Replicate) | **replicate** | 0.34+ | **이미지/영상 모델 통합 호출** — nano-banana-pro, kling, seedance, runway, sora 등을 단일 SDK로 |
 | HTTP 클라이언트 | **httpx** | 0.27+ | 기타 외부 호출, async 지원 |
-| 객체 스토리지 SDK | **boto3** | 1.34+ | S3 호환 (개발: MinIO, 운영: AWS S3 또는 자체 호환 스토리지) |
 | 큐 (Phase 2) | **arq** | 0.26+ | async-native Redis 큐. Celery보다 가볍고 FastAPI와 궁합 좋음 |
 | 캐시 (Phase 2) | **Redis** | 7.x | arq + 결과 캐시 |
 | 로깅 | **structlog** | 24.x | 구조화된 로그, JSON 출력 |
@@ -122,12 +121,10 @@ ModelAdapter (ABC)
 
 | 영역 | 기술 | 채택 이유 |
 |---|---|---|
-| 컨테이너 | **Docker** + **Docker Compose** | 개발/Phase 1 배포. backend / frontend / postgres / minio / redis 한 번에 |
+| 컨테이너 | **Docker** + **Docker Compose** | 개발/Phase 1 배포. backend / frontend / postgres / redis 한 번에 |
 | CI | **GitHub Actions** | 린트/타입체크/테스트/이미지 빌드 |
 | 배포 (Phase 1) | 단일 EC2 또는 사내 서버 + docker compose | 디자이너 소수만 사용, 트래픽 낮음 |
 | 배포 (Phase 2+) | **Kubernetes** 또는 **ECS** | 워커 확장 필요 시 검토 |
-| 객체 스토리지 (개발) | **MinIO** | S3 호환 로컬 |
-| 객체 스토리지 (운영) | **AWS S3** | 표준 |
 | 시크릿 관리 | `.env` (개발) → **AWS Secrets Manager** (운영) | API 키 다수 |
 | 모니터링 (Phase 2) | **Grafana** + **Loki** + **Tempo** | OTel 기반 |
 
@@ -150,7 +147,7 @@ ModelAdapter (ABC)
 
 ## 6. 버전 잠금 정책
 
-- **major**: lockfile에 명시 (frontend: package.json + pnpm-lock.yaml, backend: pyproject.toml + uv.lock)
+- **major**: lockfile에 명시 (frontend: package.json + package-lock.json, backend: pyproject.toml + uv.lock)
 - **minor/patch**: lockfile만 잠그고 `^` 허용
 - **API SDK (anthropic, openai)**: minor lock — 모델 변경/응답 schema 변경 영향 큼
 
@@ -160,7 +157,7 @@ ModelAdapter (ABC)
 
 - **Frontend**: React 19 + TS 5.6 + Vite 6 + Tailwind v4 + shadcn/ui + Zustand + TanStack Query + **React Flow v12 (DAG)**
 - **Backend**: Python 3.12 + FastAPI + Pydantic v2 + SQLAlchemy 2.0 async + PostgreSQL 16 + Anthropic/OpenAI/**Replicate** SDK + **arq + Redis (Phase 2)**
-- **인프라**: Docker Compose → (Phase 2) K8s, MinIO → S3, GitHub Actions
+- **인프라**: Docker Compose → (Phase 2) K8s, GitHub Actions
 - **모델 호출**: ModelAdapter 인터페이스 3개(Claude/OpenAI/Replicate)로 격리. **이미지·영상은 Replicate 단일 경로**, 텍스트는 OpenAI, 평가/변주는 Anthropic. Variant Generator(Sonnet 4.6) ≠ Evaluator(Opus 4.6).
 
 ---
@@ -186,7 +183,6 @@ dependencies = [
   "openai>=1.50",
   "replicate>=0.34",
   "httpx>=0.27",
-  "boto3>=1.34",
   "structlog>=24.4",
   "python-multipart>=0.0.9",
 ]

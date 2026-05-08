@@ -1,0 +1,17 @@
+{
+  "brief_summary": "Business portrait photo of professional executive. Clean studio background.",
+  "image_url": "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800",
+  "raw_llm_response": {
+    "scores": {
+      "text_absence": 0.98,
+      "resolution_quality": 0.91,
+      "composition": 0.87
+    },
+    "rationale": {
+      "text_absence": "No visible text, watermarks, or logos in the image.",
+      "resolution_quality": "Sharp, high-resolution image with no artifacts.",
+      "composition": "Subject well-centered with professional framing."
+    },
+    "notable_issues": []
+  }
+}

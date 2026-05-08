@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "_DagSchema": {
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/_NodeSchema"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "variables": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Variables",
+          "type": "array"
+        }
+      },
+      "required": [
+        "nodes",
+        "edges",
+        "variables"
+      ],
+      "title": "_DagSchema",
+      "type": "object"
+    },
+    "_ModelRefSchema": {
+      "properties": {
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model_id": {
+          "title": "Model Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model_id"
+      ],
+      "title": "_ModelRefSchema",
+      "type": "object"
+    },
+    "_NodeInputSchema": {
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "role"
+      ],
+      "title": "_NodeInputSchema",
+      "type": "object"
+    },
+    "_NodeSchema": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/_ModelRefSchema"
+        },
+        "prompt_template": {
+          "title": "Prompt Template",
+          "type": "string"
+        },
+        "inputs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/_NodeInputSchema"
+          },
+          "title": "Inputs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "model",
+        "prompt_template"
+      ],
+      "title": "_NodeSchema",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "dag": {
+      "$ref": "#/$defs/_DagSchema"
+    }
+  },
+  "required": [
+    "name",
+    "tags",
+    "dag"
+  ],
+  "title": "_VariantSchema",
+  "type": "object"
+}

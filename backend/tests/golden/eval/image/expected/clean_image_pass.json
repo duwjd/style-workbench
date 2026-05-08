@@ -1,0 +1,8 @@
+{
+  "expected_overall_passed": true,
+  "expected_scores": {
+    "text_absence": 0.98,
+    "resolution_quality": 0.91,
+    "composition": 0.87
+  }
+}

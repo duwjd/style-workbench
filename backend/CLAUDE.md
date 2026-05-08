@@ -17,7 +17,7 @@
 ## 2. 절대 규칙 (위반 즉시 작업 중단)
 
 1. **레이어 의존 방향**: `api → services → domain ← infra`. domain은 그 어떤 다른 레이어도 import 금지. infra는 services를 import 못 한다. **역방향 import는 즉시 거부.**
-2. **외부 SDK 직접 호출 금지**: `anthropic`, `openai`, `replicate`, `boto3` 등은 `adapters/` 또는 `infra/storage/`에서만 import. services/api에서 발견되면 차단.
+2. **외부 SDK 직접 호출 금지**: `anthropic`, `openai`, `replicate` 등은 `adapters/`에서만 import. services/api에서 발견되면 차단.
 3. **JSON 파일 데이터 저장 금지**: PostgreSQL + SQLAlchemy 2.0 async + Alembic만.
 4. **DAG 위상 검증 누락 금지**: Style 저장/업데이트 시 사이클·고립 노드·변수 참조 무결성 검사 필수.
 5. **placeholder `{name}` 보호**: `domain/prompt/template.py`의 `safe_substitute(...)`로만 치환. 직접 `.format()`/`.replace()` 금지.
@@ -35,7 +35,7 @@
 ### 3.2 async / 예외 / 로그
 - **async 우선**: 라우터/서비스/저장소 모두 `async def`. blocking I/O는 `asyncio.to_thread(...)`로 격리.
 - **예외**: 도메인 예외는 `core/errors.py`에서만 정의. API 핸들러에서 매핑 테이블로 HTTP 변환. **라우터에서 `HTTPException` 직접 raise 금지.**
-- **로그**: `structlog.get_logger(__name__)`. `print` 금지. 외부 모델 응답 원문은 hash/요약만, 원문은 S3 `object_url`로만.
+- **로그**: `structlog.get_logger(__name__)`. `print` 금지. 외부 모델 응답 원문은 hash/요약만, 원문은 DB의 `artifact_url`(provider URL)로만 참조.
 
 ### 3.3 import / 응답
 - 절대경로 임포트 (`from style_workbench.services.x import Y`). 상대경로 금지.
@@ -110,10 +110,6 @@ Style → versions[] → dag = {nodes[], edges[], variables[]}
 ```bash
 # .env.example
 DATABASE_URL=postgresql+asyncpg://workbench:workbench@localhost:5432/workbench
-S3_ENDPOINT_URL=http://localhost:9000
-S3_BUCKET=style-workbench
-S3_ACCESS_KEY=minio
-S3_SECRET_KEY=miniopass
 
 # AI vendors
 ANTHROPIC_API_KEY=
@@ -134,8 +130,7 @@ ENVIRONMENT=development
 
 - **비디오 호출은 매우 비싸다** (Style 1개 회귀 ~₩80,000). `services/run_service.py`에 `cost_budget_won` 옵션을 두고 누적 비용 초과 시 abort.
 - 한 Run 안에서 노드 N × 시도 ≤ 3 × 평가 1회. 초과 시 알림.
-- 외부 모델 응답에 PII 가능 → 로그는 hash/요약만, 원문은 S3 `object_url`로만 참조.
-- 사용자 업로드 자산은 **90일 후 만료**. `infra/storage/lifecycle.py`에 정책 코드.
+- 외부 모델 응답에 PII 가능 → 로그는 hash/요약만, 원문은 DB의 `artifact_url`(provider URL)로만 참조.
 
 ---
 

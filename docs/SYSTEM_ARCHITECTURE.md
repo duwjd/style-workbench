@@ -9,8 +9,6 @@
 ```
 [Designer Browser] ──HTTPS──> [FastAPI Backend] ──> [PostgreSQL]
                                     │
-                                    ├──> [S3/MinIO] (artifacts)
-                                    │
                                     ├──> [Anthropic API] (Claude — variant gen, eval)
                                     ├──> [OpenAI API]    (gpt-5.4 — text 단계)
                                     └──> [Replicate API] (image / video — nano-banana-pro,
@@ -45,7 +43,7 @@ Phase 2 추가:
 
 ## 2. 레이어 구조 (Backend)
 
-Clean Architecture 변형. 의존 방향: `api` → `services` → `domain` ← `infra`. 외부 영향(DB, AI API, S3)은 `infra`에 격리.
+Clean Architecture 변형. 의존 방향: `api` → `services` → `domain` ← `infra`. 외부 영향(DB, AI API)은 `infra`에 격리.
 
 ```
 backend/
@@ -102,7 +100,7 @@ backend/
 │   │   ├── replicate.py            # Replicate SDK — 모든 image/video 모델
 │   │   └── registry.py             # provider/model_id → adapter 매핑
 │   │
-│   ├── infra/                      # DB, S3, 큐, 외부 I/O
+│   ├── infra/                      # DB, 큐, 외부 I/O
 │   │   ├── db/
 │   │   │   ├── session.py          # async session factory
 │   │   │   ├── base.py             # DeclarativeBase
@@ -115,8 +113,6 @@ backend/
 │   │   │   ├── style_repo.py
 │   │   │   ├── run_repo.py
 │   │   │   └── evaluation_repo.py
-│   │   ├── storage/
-│   │   │   └── s3.py               # 업로드/다운로드 URL 발급
 │   │   └── queue/                  # Phase 2
 │   │       └── arq_settings.py
 │   │
@@ -175,13 +171,13 @@ from pydantic import BaseModel
 
 class ModelInput(BaseModel):
     prompt: str
-    images: list[str] = []          # S3 URL or data URI
+    images: list[str] = []          # data URI 또는 provider URL
     parameters: dict[str, Any] = {} # duration, aspect_ratio 등
 
 class ModelOutput(BaseModel):
     type: Literal["text", "image", "video"]
     content: str | None = None      # 텍스트일 때
-    artifact_url: str | None = None # 이미지/비디오일 때 (S3 업로드 후 URL)
+    artifact_url: str | None = None # 이미지/비디오일 때 (provider URL, 화면 표시/다운로드용)
     raw_response: dict[str, Any] = {}
     cost_estimate: float = 0.0      # 원화
 
@@ -214,7 +210,7 @@ class ReplicateAdapter(ModelAdapter):
             input=self._build_input(input),
         )
         completed = await self._poll(prediction)        # 비동기 폴링
-        artifact_url = await self._download_to_s3(completed.output)
+        artifact_url = str(completed.output)            # provider URL 그대로 반환
         return ModelOutput(
             type=self._type_for(model_id),              # registry 또는 model_profile에서 lookup
             artifact_url=artifact_url,
@@ -365,7 +361,7 @@ CREATE TABLE node_executions (
   model_provider  TEXT,
   model_id        TEXT,
   prompt_resolved TEXT,                       -- placeholder 치환된 최종 prompt
-  artifact_url    TEXT,                       -- S3 URL
+  artifact_url    TEXT,                       -- provider URL
   raw_response    JSONB,
   cost            NUMERIC(10, 2),
   status          TEXT NOT NULL,
@@ -446,7 +442,6 @@ REST + JSON. 모든 응답은 `snake_case` (frontend가 axios 인터셉터로 �
 | `POST` | `/api/evaluations/{id}/verdict` | 디자이너 채택/기각 기록 |
 | `GET`  | `/api/test-sets` | 테스트셋 리스트 |
 | `POST` | `/api/test-sets` | 테스트셋 생성 (파일 업로드 후) |
-| `POST` | `/api/uploads` | 이미지 업로드 (multipart, S3 presigned URL) |
 | `GET`  | `/api/models` | 모델 프로파일 리스트 |
 | `POST` | `/api/exports` | Style → 운영 시스템 포맷 export |
 
@@ -681,7 +676,7 @@ class GemgemExportAdapter:
 | Run 전체 latency | 비디오 모델에 의존 (~수 분) | 동일 | AI vendor 처리 시간 |
 | Variant 생성 latency | <30s | <30s | Claude Sonnet |
 | 평가 latency / 노드 | <15s | <15s | Claude Vision |
-| 데이터 보존 | DB 무기한, S3 90일 | 동일 | 비용/거버넌스 |
+| 데이터 보존 | DB 무기한 | 동일 | artifact_url은 provider 정책에 따라 만료 가능 |
 | 가용성 목표 | 95% | 99% | Phase 1은 일과시간만 |
 
 ---
@@ -692,7 +687,7 @@ class GemgemExportAdapter:
 style-workbench/
 ├── backend/                  # 위 §2
 ├── frontend/                 # 위 §10
-├── docker-compose.yml        # postgres + minio + redis(Phase2) + backend + frontend
+├── docker-compose.yml        # postgres + redis(Phase2) + backend + frontend
 ├── docker/
 ├── docs/                     # 본 문서들 사본
 ├── .github/workflows/

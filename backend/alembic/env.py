@@ -13,12 +13,9 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 # src/를 경로에 추가해 style_workbench 패키지를 인식
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import style_workbench.infra.db.models  # noqa: F401, E402
 from style_workbench.core.config import settings  # noqa: E402
 from style_workbench.infra.db.base import Base  # noqa: E402
-
-# ORM 모델을 여기서 import → autogenerate가 테이블을 인식
-# Step 3에서 모델 추가 시 아래에 한 줄씩 추가
-# from style_workbench.infra.db.models import style, run, evaluation, test_set  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

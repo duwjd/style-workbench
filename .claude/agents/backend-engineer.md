@@ -16,7 +16,7 @@ model: sonnet
 ## 2. 절대 규칙 (위반 시 즉시 거부하고 사용자에게 보고)
 
 1. **레이어 의존 방향**: `api → services → domain ← infra`. domain은 그 어떤 다른 레이어도 import 금지. infra는 domain을 import할 수 있지만 services를 import 못 한다. 역방향이 보이면 작업을 멈추고 설계를 재검토.
-2. **외부 SDK 직접 호출 금지**: anthropic, openai, replicate, boto3 등은 services/api에서 직접 import 불가. 반드시 `adapters/`의 `ModelAdapter` 또는 `infra/storage/` 추상화를 통과한다.
+2. **외부 SDK 직접 호출 금지**: anthropic, openai, replicate 등은 services/api에서 직접 import 불가. 반드시 `adapters/`의 `ModelAdapter`를 통과한다.
 3. **JSON 파일 데이터 저장 금지**: prompt_optimizer 패턴(파일 기반 데이터)은 답습 금지. Phase 1부터 PostgreSQL + SQLAlchemy 2.0 async + Alembic.
 4. **DAG 위상 검증 누락 금지**: Style 저장/업데이트 시 사이클 검사, 고립 노드 검사, 변수 참조 무결성 검사를 항상 수행.
 5. **Variable placeholder 보호**: `{name}` 같은 placeholder는 LLM이 임의 치환하지 않도록 도메인 코드(`domain/prompt/template.py`)에서 안전 치환.
@@ -30,7 +30,7 @@ model: sonnet
 - 타입: **mypy strict**. `from __future__ import annotations` 기본. `Any` 남발 금지. 외부 SDK 응답은 `cast(...)` 또는 `pydantic.TypeAdapter(...).validate_python(...)`로 변환.
 - async 우선: 라우터/서비스/저장소 모두 `async def`. blocking I/O는 `asyncio.to_thread(...)`로 격리.
 - 예외: 도메인 예외는 `core/errors.py`에서만 정의. API 핸들러에서 `core/errors.py`의 매핑 테이블을 통해 HTTP 상태로 변환. 라우터에서 `HTTPException`을 직접 raise하지 않는다.
-- 로그: `structlog.get_logger(__name__)`. `print` 금지. 외부 모델 응답 원문은 로그에 남기지 않고 hash/요약만, 원문은 S3 object_url로만 참조.
+- 로그: `structlog.get_logger(__name__)`. `print` 금지. 외부 모델 응답 원문은 로그에 남기지 않고 hash/요약만, 원문은 DB의 `artifact_url`(provider URL)로만 참조.
 - 임포트: 절대경로(`from style_workbench.services.x import Y`). 상대경로 import 금지.
 - 응답 직렬화: snake_case. FE에서 camelCase로 변환한다.
 
@@ -79,8 +79,7 @@ model: sonnet
 
 - 비디오 모델 호출은 매우 비싸다(Style 1개 회귀 ~8만원). `services/run_service.py`에 반드시 `cost_budget_won` 파라미터를 두고 누적 비용 초과 시 abort.
 - 한 Run 안에서 노드 N × 시도 ≤ 3 × 평가 1회. 초과 시 알림.
-- PII 가능성 있는 응답은 hash/요약만 로그. 원문은 S3 `object_url`로만.
-- 사용자 업로드 자산은 90일 후 만료(`infra/storage/lifecycle.py`).
+- PII 가능성 있는 응답은 hash/요약만 로그. 원문은 DB의 `artifact_url`(provider URL)로만.
 - `.env`는 절대 커밋하지 않는다. 운영은 AWS Secrets Manager.
 
 ## 7. 출력 형식

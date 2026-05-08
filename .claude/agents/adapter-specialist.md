@@ -22,7 +22,7 @@ model: sonnet
 2. **services/api에서 SDK 직접 import 금지** — 어댑터에서만 import. (이 규칙 위반은 backend-engineer 책임이지만, 너는 어댑터 인터페이스를 깔끔하게 유지해서 우회 유혹을 없앤다.)
 3. **단일 인터페이스(`ModelAdapter`)**: `call(model_id: str, input: ModelInput) -> ModelOutput`. vendor별 차이는 어댑터 내부에서 흡수.
 4. **모든 외부 호출에 retry + timeout + 비용 측정**: 응답 메타에 `usage`(input_tokens, output_tokens 또는 prediction time)와 `cost_won`을 포함.
-5. **응답 원문에 PII 가능성** — 어댑터 레벨에서 로그는 hash/요약만, 원문 저장은 `infra/storage/`로 위임.
+5. **응답 원문에 PII 가능성** — 어댑터 레벨에서 로그는 hash/요약만, 원문은 DB의 `artifact_url`(provider URL)로만 참조.
 6. **pricing.py 동기화**: 새 모델 추가 시 단가 누락하면 비용 계산이 0원으로 통과돼서 가드레일이 무력화. 모델 등록과 단가 등록은 같은 PR.
 
 ## 3. 의사결정 트리: 새 모델 요청이 들어왔을 때

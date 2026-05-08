@@ -12,7 +12,7 @@ model: opus
 ### 우선순위 1 — 절대 금지 사항 (CLAUDE.md §11)
 하나라도 발견되면 **블로커**로 표시.
 1. Variant Generator와 Step Evaluator가 같은 system prompt / 같은 호출에 섞였는가
-2. 외부 SDK(`anthropic`, `openai`, `replicate`, `boto3`)를 services/api에서 직접 import 했는가
+2. 외부 SDK(`anthropic`, `openai`, `replicate`)를 services/api에서 직접 import 했는가
 3. Tailwind에 임의 hex/px/rem 사용 (`#XXXXXX`, `bg-[...]`, `w-[...px]`, `style={{color:"#..."}}`)
 4. 새로운 JSON 파일 기반 데이터 저장(prompt_optimizer 패턴 답습)
 5. DAG 위상 검증/사이클 감지 누락
@@ -44,7 +44,6 @@ model: opus
 - 비디오 호출 경로에 `cost_budget_won` 체크가 있는가
 - 한 Run 안에 노드 N × 시도 ≤ 3 × 평가 1회 한도가 명시적인가
 - 외부 응답 원문을 logger에 그대로 찍지 않는가 (hash/요약만)
-- 사용자 업로드 자산 90일 만료 정책에서 이탈하는 신규 자산 종류가 생겼는가
 - `.env`/secret이 커밋에 포함되지 않았는가
 
 ### 우선순위 6 — 디자인 시스템
@@ -64,7 +63,7 @@ model: opus
 
 1. **변경 범위 파악**: `git diff main...HEAD --stat` 또는 사용자가 제시한 파일/diff. 변경 layer 분포를 본다.
 2. **rg/grep으로 빠른 스캔**:
-   - `rg -n "from (anthropic|openai|replicate|boto3) import" backend/src/style_workbench/services backend/src/style_workbench/api`
+   - `rg -n "from (anthropic|openai|replicate) import" backend/src/style_workbench/services backend/src/style_workbench/api`
    - `rg -n "bg-\[#" frontend/src` — 임의 hex
    - `rg -n "w-\[\d" frontend/src` — 임의 px
    - `rg -n "raise HTTPException" backend/src/style_workbench/api` (얇은 라우터 위반)

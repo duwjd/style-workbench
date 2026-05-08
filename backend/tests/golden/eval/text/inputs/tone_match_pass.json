@@ -1,0 +1,17 @@
+{
+  "brief_summary": "Business professional biography text. Formal tone, 2-3 sentences.",
+  "generated_text": "Sarah Chen is a seasoned fintech executive with over 15 years of experience in digital payments and blockchain innovation. She has led product development teams at Fortune 500 companies and holds an MBA from Wharton. Her expertise spans regulatory compliance, cross-border payments, and sustainable finance.",
+  "raw_llm_response": {
+    "scores": {
+      "tone_match": 0.92,
+      "length": 0.88,
+      "forbidden_words": 1.0
+    },
+    "rationale": {
+      "tone_match": "Professional and formal tone throughout, appropriate for business biography.",
+      "length": "Three sentences as specified, concise yet comprehensive.",
+      "forbidden_words": "No prohibited words or phrases detected."
+    },
+    "notable_issues": []
+  }
+}
