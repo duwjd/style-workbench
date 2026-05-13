@@ -27,6 +27,7 @@ dev = [
   "pytest-asyncio>=0.24",
   "ruff>=0.6",
   "mypy>=1.11",
+  "aiosqlite>=0.22.1",
 ]
 phase2 = [
   "arq>=0.26",
@@ -59,3 +60,7 @@ mypy_path = "src"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+  "golden: golden-suite regression tests (run with pytest -m golden)",
+  "golden_live: live LLM golden tests — requires ANTHROPIC_API_KEY (CI nightly only)",
+]

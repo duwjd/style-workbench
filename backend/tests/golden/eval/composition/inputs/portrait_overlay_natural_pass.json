@@ -1,0 +1,17 @@
+{
+  "brief_summary": "Composite of executive portrait over a soft studio gradient backdrop. Editorial mood, balanced framing, business vertical.",
+  "image_url": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800",
+  "raw_llm_response": {
+    "scores": {
+      "consistency": 0.91,
+      "aesthetic_balance": 0.88,
+      "brief_match": 0.9
+    },
+    "rationale": {
+      "consistency": "Lighting direction and color grade align between subject and backdrop.",
+      "aesthetic_balance": "Subject placed on the upper-left third with intentional negative space on the right.",
+      "brief_match": "Editorial mood is reinforced by neutral palette and soft gradient; matches the business intent."
+    },
+    "notable_issues": []
+  }
+}

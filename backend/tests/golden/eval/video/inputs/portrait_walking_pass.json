@@ -1,0 +1,23 @@
+{
+  "brief_summary": "Slow dolly-in on a professional executive walking toward camera. Studio backdrop, cinematic lighting, steady forward motion across 3 seconds.",
+  "frame_urls": [
+    "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&frame=0",
+    "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&frame=1",
+    "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&frame=2"
+  ],
+  "raw_llm_response": {
+    "scores": {
+      "motion_artifact": 0.93,
+      "subject_preservation": 0.9,
+      "motion_compliance": 0.88,
+      "speed_consistency": 0.86
+    },
+    "rationale": {
+      "motion_artifact": "No visible flicker, warping, or morphing across frames 0-2.",
+      "subject_preservation": "Subject silhouette and key features remain stable across all three frames.",
+      "motion_compliance": "Forward dolly motion observed, matches the brief's implied camera move.",
+      "speed_consistency": "Approximately uniform inter-frame displacement, no acceleration spikes."
+    },
+    "notable_issues": []
+  }
+}

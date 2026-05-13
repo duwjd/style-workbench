@@ -6,13 +6,16 @@ import structlog
 
 from style_workbench.adapters.base import ModelInput, ModelOutput
 from style_workbench.adapters.claude import ClaudeAdapter
-from style_workbench.core.errors import RunNotFoundError
+from style_workbench.core.errors import EvaluationNotFoundError, RunNotFoundError
 from style_workbench.core.ids import new_ulid
 from style_workbench.domain.evaluation.criteria import PASS_THRESHOLD, dimensions_for
 from style_workbench.domain.evaluation.entity import DimensionScore, EvaluationResult
 from style_workbench.domain.style.entity import NodeType
 from style_workbench.engine.retry import RETRY_MODIFIERS
-from style_workbench.infra.repositories.evaluation_repo import SqlAlchemyEvaluationRepository
+from style_workbench.infra.repositories.evaluation_repo import (
+    EvaluationRecord,
+    SqlAlchemyEvaluationRepository,
+)
 from style_workbench.infra.repositories.run_repo import NodeExecutionRecord, SqlAlchemyRunRepository
 from style_workbench.prompts.evaluator_composition import build_composition_eval_input
 from style_workbench.prompts.evaluator_image import build_image_eval_input
@@ -27,10 +30,17 @@ from style_workbench.prompts.shared.output_schema import parse_eval_output
 logger = structlog.get_logger(__name__)
 
 
-def _build_retry_guidance(failed_dims: list[str]) -> str | None:
-    """실패한 차원별 modifier 문구를 이어붙여 retry_guidance를 생성한다."""
+def _build_retry_guidance(failed_dims: list[str]) -> dict[str, str] | None:
+    """실패한 차원별 modifier 문구를 이어붙여 retry_guidance dict를 생성한다.
+
+    Returns:
+        {"instruction": "<combined modifier text>"} when there are failed dims with known modifiers.
+        None when PASS (no failed_dims) or no modifier defined for the failed dims.
+    """
     parts = [RETRY_MODIFIERS[d] for d in failed_dims if d in RETRY_MODIFIERS]
-    return "\n".join(parts) if parts else None
+    if not parts:
+        return None
+    return {"instruction": "\n".join(parts)}
 
 
 class EvaluationService:
@@ -114,6 +124,43 @@ class EvaluationService:
             failed_dims=failed_dims,
         )
         return result
+
+    async def list_by_run(self, run_id: str) -> list[EvaluationRecord]:
+        """run_id 에 속한 모든 평가 record 를 반환한다.
+
+        Args:
+            run_id: 조회 대상 Run.id.
+
+        Returns:
+            EvaluationRecord 목록 (생성 시각 오름차순).
+        """
+        return await self._eval_repo.list_by_run(run_id)
+
+    async def update_human_verdict(
+        self,
+        evaluation_id: str,
+        verdict: str,
+        comment: str | None = None,
+    ) -> EvaluationRecord:
+        """디자이너 verdict 를 저장하고 갱신된 EvaluationRecord 를 반환한다.
+
+        Args:
+            evaluation_id: 대상 Evaluation.id.
+            verdict: "approved" | "rejected".
+            comment: 선택적 코멘트.
+
+        Raises:
+            RunNotFoundError: 해당 evaluation 이 존재하지 않을 때.
+        """
+        record = await self._eval_repo.update_human_verdict(evaluation_id, verdict, comment)
+        if record is None:
+            raise EvaluationNotFoundError(f"Evaluation '{evaluation_id}' not found")
+        logger.info(
+            "human_verdict_saved",
+            evaluation_id=evaluation_id,
+            verdict=verdict,
+        )
+        return record
 
     def _build_eval_input(
         self,

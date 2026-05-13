@@ -1,0 +1,8 @@
+{
+  "expected_overall_passed": false,
+  "expected_scores": {
+    "consistency": 0.45,
+    "aesthetic_balance": 0.62,
+    "brief_match": 0.58
+  }
+}

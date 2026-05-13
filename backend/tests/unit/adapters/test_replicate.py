@@ -72,9 +72,11 @@ async def test_poll_timeout_raises() -> None:
 def test_not_configured_error() -> None:
     mock_settings = MagicMock()
     mock_settings.replicate_api_token = ""
-    with patch("style_workbench.adapters.replicate.settings", mock_settings):
-        with pytest.raises(NotConfiguredError):
-            ReplicateAdapter()
+    with (
+        patch("style_workbench.adapters.replicate.settings", mock_settings),
+        pytest.raises(NotConfiguredError),
+    ):
+        ReplicateAdapter()
 
 
 def test_cost_estimate_positive(adapter: ReplicateAdapter) -> None:

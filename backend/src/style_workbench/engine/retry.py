@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 # automation/retry_modifiers.md 기반 modifier 사전.
 # 실패한 차원 이름을 키로, 원본 prompt 끝에 append할 문구를 값으로 가진다.
@@ -143,7 +144,7 @@ class RetryPolicy:
     @staticmethod
     def apply_modifiers(
         original_prompt: str,
-        retry_guidance: str | None,
+        retry_guidance: dict[str, Any] | None,
         failed_dims: list[str],
         state: RetryState,
     ) -> tuple[str, RetryState]:
@@ -151,7 +152,8 @@ class RetryPolicy:
 
         Args:
             original_prompt: 이전 시도에 사용한 prompt.
-            retry_guidance:  EvaluationResult.retry_guidance (None 가능).
+            retry_guidance:  EvaluationResult.retry_guidance (dict[str, Any] | None).
+                             "instruction" 키의 값을 prompt에 append한다.
             failed_dims:     점수가 PASS_THRESHOLD 미만인 차원 이름 목록.
             state:           현재 RetryState.
 
@@ -164,8 +166,11 @@ class RetryPolicy:
             if modifier:
                 parts.append(modifier)
 
+        # Extract the instruction string from the guidance dict if present
         if retry_guidance:
-            parts.append(retry_guidance)
+            instruction = retry_guidance.get("instruction")
+            if instruction:
+                parts.append(str(instruction))
 
         if parts:
             suffix = "\n".join(parts)

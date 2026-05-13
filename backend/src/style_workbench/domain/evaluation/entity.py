@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from style_workbench.domain.evaluation.criteria import PASS_THRESHOLD
 
@@ -20,7 +21,9 @@ class EvaluationResult:
     evaluator_model: str
     dimensions: list[DimensionScore]
     notable_issues: list[str]
-    retry_guidance: str | None
+    retry_guidance: (
+        dict[str, Any] | None
+    )  # None when PASS; dict with at least "instruction" key when FAIL
     created_at: datetime
 
     @property

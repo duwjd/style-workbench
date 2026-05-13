@@ -1,0 +1,20 @@
+{
+  "brief_summary": "Composite of product packshot onto a lifestyle scene. Lighting must match between layers; commerce vertical, premium mood.",
+  "image_url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800",
+  "raw_llm_response": {
+    "scores": {
+      "consistency": 0.45,
+      "aesthetic_balance": 0.62,
+      "brief_match": 0.58
+    },
+    "rationale": {
+      "consistency": "Product layer is lit from the left while the scene is lit from the right; clear lighting mismatch.",
+      "aesthetic_balance": "Composition is slightly off-center but not catastrophically so.",
+      "brief_match": "Premium mood is partially achieved but undermined by the visible compositing seam around the product."
+    },
+    "notable_issues": [
+      "Hard cutout edge visible on product silhouette",
+      "Cast shadow on product does not match scene light direction"
+    ]
+  }
+}

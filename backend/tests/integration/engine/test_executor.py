@@ -4,8 +4,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from style_workbench.adapters.base import ModelInput, ModelOutput
-from style_workbench.adapters.base import ModelAdapter
+from style_workbench.adapters.base import ModelAdapter, ModelInput, ModelOutput
 from style_workbench.adapters.registry import clear_registry, register
 from style_workbench.core.ids import new_ulid
 from style_workbench.domain.style.entity import DAG, Edge, ModelRef, Node, NodeInput, NodeType
@@ -13,12 +12,14 @@ from style_workbench.engine.executor import DagExecutor
 from style_workbench.infra.db.models.run import NodeExecution, Run
 from style_workbench.infra.db.models.style import Style, StyleVersion
 
-
 # ── Stub adapters ──────────────────────────────────────────────────────────────
+
 
 class _StubTextAdapter(ModelAdapter):
     async def generate(self, input: ModelInput) -> ModelOutput:
-        return ModelOutput(text="generated caption", input_tokens=5, output_tokens=3, cost_usd=0.0001)
+        return ModelOutput(
+            text="generated caption", input_tokens=5, output_tokens=3, cost_usd=0.0001
+        )
 
     def cost_estimate(self, model_id: str, input: ModelInput) -> float:
         return 0.0
@@ -39,6 +40,7 @@ class _StubImageAdapter(ModelAdapter):
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def stub_registry() -> None:
@@ -66,6 +68,7 @@ async def run_id(session: AsyncSession) -> str:
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────────
+
 
 async def test_executor_2_node_dag(session: AsyncSession, run_id: str) -> None:
     dag = DAG(

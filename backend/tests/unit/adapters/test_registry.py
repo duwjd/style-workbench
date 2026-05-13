@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from style_workbench.adapters.base import ModelAdapter, ModelInput, ModelOutput
 from style_workbench.adapters import registry as reg
+from style_workbench.adapters.base import ModelAdapter, ModelInput, ModelOutput
 
 
 class _FakeAdapter(ModelAdapter):

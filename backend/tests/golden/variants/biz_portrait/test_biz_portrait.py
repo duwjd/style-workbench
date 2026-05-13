@@ -6,9 +6,9 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from style_workbench.domain.style.schema import style_from_dict
 from style_workbench.domain.style.validation import validate_dag
 from style_workbench.domain.style.variables import extract_variables
-from style_workbench.services.variant_service import _dict_to_style
 
 _FIXTURE_DIR = Path(__file__).parent
 _FIXTURE_PATH = _FIXTURE_DIR / "fixture_variants.json"
@@ -76,7 +76,7 @@ def test_fixture_dag_no_cycles() -> None:
     """Each fixture variant's DAG is acyclic (validate_dag must not raise)."""
     fixture = _load_fixture()
     for d in fixture:
-        style = _dict_to_style(d, concept="비즈니스 포트레이트", vertical="portrait")
+        style = style_from_dict(d, concept="비즈니스 포트레이트", vertical="portrait")
         validate_dag(style.dag)
 
 

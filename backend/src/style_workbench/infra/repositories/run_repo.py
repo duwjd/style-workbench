@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Protocol
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -57,6 +57,8 @@ class RunRepository(Protocol):
     async def get(self, run_id: str) -> RunRecord | None: ...
 
     async def get_node_execution(self, ne_id: str) -> NodeExecutionRecord | None: ...
+
+    async def abort_run(self, run_id: str, finished_at: datetime) -> None: ...
 
 
 class SqlAlchemyRunRepository:
@@ -127,6 +129,25 @@ class SqlAlchemyRunRepository:
         if ne is None:
             return None
         return _ne_orm_to_record(ne)
+
+    async def abort_run(self, run_id: str, finished_at: datetime) -> None:
+        """Mark the run and any running node_executions as aborted."""
+        run_stmt = select(RunORM).where(RunORM.id == run_id)
+        orm_run = (await self._session.execute(run_stmt)).scalar_one_or_none()
+        if orm_run is None:
+            return
+        orm_run.status = "aborted"
+        orm_run.finished_at = finished_at
+
+        # Bulk-update all node_executions that are still in-progress
+        ne_stmt = (
+            update(NEORM)
+            .where(NEORM.run_id == run_id)
+            .where(NEORM.status.in_(["running", "pending"]))
+            .values(status="aborted", finished_at=finished_at)
+        )
+        await self._session.execute(ne_stmt)
+        await self._session.flush()
 
 
 def _ne_orm_to_record(ne: NEORM) -> NodeExecutionRecord:

@@ -1,0 +1,26 @@
+{
+  "brief_summary": "Smooth pan across a product shelf. Steady horizontal motion, retail vertical, neutral mood.",
+  "frame_urls": [
+    "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&frame=0",
+    "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&frame=1",
+    "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&frame=2"
+  ],
+  "raw_llm_response": {
+    "scores": {
+      "motion_artifact": 0.42,
+      "subject_preservation": 0.55,
+      "motion_compliance": 0.6,
+      "speed_consistency": 0.48
+    },
+    "rationale": {
+      "motion_artifact": "Visible warping and morphing on edge contours between frames 1 and 2.",
+      "subject_preservation": "Product on the right shelf shifts shape between frames; identity drift detected.",
+      "motion_compliance": "Pan direction approximately correct but partially overlaps with unintended zoom.",
+      "speed_consistency": "Frame 1 to 2 displacement is roughly twice that of frame 0 to 1; uneven pacing."
+    },
+    "notable_issues": [
+      "Frame 1->2: edge warping on product silhouette",
+      "Frame 0->1->2: non-uniform pan speed"
+    ]
+  }
+}

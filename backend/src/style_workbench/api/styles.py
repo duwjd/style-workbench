@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from style_workbench.api.deps import get_style_service
 from style_workbench.api.schemas.styles import (
+    DagCreateRequest,
     DagResponse,
     NodeInputResponse,
     NodeResponse,
@@ -12,6 +13,8 @@ from style_workbench.api.schemas.styles import (
     StyleListItemResponse,
     StyleResponse,
     StyleStatusUpdateRequest,
+    StyleVersionResponse,
+    VariableMappingPayload,
 )
 from style_workbench.domain.style.entity import DAG
 from style_workbench.domain.style.schema import dag_from_dict
@@ -29,6 +32,15 @@ def _dag_to_response(dag: DAG) -> DagResponse:
                 model={"provider": n.model.provider, "model_id": n.model.model_id},
                 prompt_template=n.prompt_template,
                 inputs=[NodeInputResponse(source=i.source, role=i.role) for i in n.inputs],
+                variable_mapping={
+                    k: VariableMappingPayload(
+                        source=v.source,
+                        role=v.role,
+                        node_id=v.node_id,
+                        value=v.value,
+                    )
+                    for k, v in n.variable_mapping.items()
+                },
             )
             for n in dag.nodes
         ],
@@ -103,6 +115,26 @@ async def get_style(
         version_id=record.version_id,
         created_at=record.created_at,
         dag=_dag_to_response(record.style.dag),
+    )
+
+
+@router.post("/{style_id}/versions", response_model=StyleVersionResponse, status_code=201)
+async def create_style_version(
+    style_id: str,
+    payload: DagCreateRequest,
+    service: StyleService = Depends(get_style_service),
+) -> StyleVersionResponse:
+    dag = dag_from_dict(payload.dag.model_dump())
+    record = await service.save_dag(
+        style_id=style_id,
+        dag=dag,
+        brief=payload.brief,
+    )
+    return StyleVersionResponse(
+        version_id=record.version_id,
+        version=record.version,
+        current_version=record.current_version,
+        created_at=record.created_at,
     )
 
 

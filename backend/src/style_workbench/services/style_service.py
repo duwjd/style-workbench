@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+from typing import Any
+
 from style_workbench.core.errors import StyleNotFoundError
 from style_workbench.core.ids import new_ulid
 from style_workbench.domain.style.entity import DAG, Style
 from style_workbench.domain.style.validation import validate_dag
-from style_workbench.infra.repositories.style_repo import StyleRecord, StyleRepository
+from style_workbench.infra.repositories.style_repo import (
+    StyleRecord,
+    StyleRepository,
+    StyleVersionRecord,
+)
 
 
 class StyleService:
@@ -48,3 +54,26 @@ class StyleService:
         if record is None:
             raise StyleNotFoundError(f"Style '{style_id}' not found")
         return record
+
+    async def save_dag(
+        self,
+        style_id: str,
+        dag: DAG,
+        brief: dict[str, Any] | None = None,
+    ) -> StyleVersionRecord:
+        """Validate the DAG and create a new version for the given style.
+
+        Steps:
+        1. Verify the style exists (StyleNotFoundError → 404 if not).
+        2. Validate DAG structure (DagValidationError → 422 if invalid).
+        3. Insert new style_versions row (version = current_version + 1).
+        4. Update styles.current_version.
+        All steps run inside the session's transaction boundary managed by the caller.
+        """
+        existing = await self._repo.get(style_id)
+        if existing is None:
+            raise StyleNotFoundError(f"Style '{style_id}' not found")
+
+        validate_dag(dag)
+
+        return await self._repo.create_version(style_id, dag, brief=brief)

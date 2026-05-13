@@ -1,0 +1,9 @@
+{
+  "expected_overall_passed": true,
+  "expected_scores": {
+    "motion_artifact": 0.93,
+    "subject_preservation": 0.9,
+    "motion_compliance": 0.88,
+    "speed_consistency": 0.86
+  }
+}

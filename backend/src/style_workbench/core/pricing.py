@@ -13,6 +13,8 @@ _PRICES: dict[str, dict[str, float]] = {
     "gpt-4o": {"input": 2.5, "output": 10.0},
     "gpt-4o-mini": {"input": 0.15, "output": 0.6},
     "gpt-4.1": {"input": 2.0, "output": 8.0},
+    # https://openai.com/api/pricing (2026-05-08 확인)
+    "gpt-5.4": {"input": 7.5, "output": 30.0},
 }
 
 
@@ -33,3 +35,15 @@ _REPLICATE_PRICES: dict[str, float] = {
 
 def cost_usd_replicate(model_id: str) -> float:
     return _REPLICATE_PRICES.get(model_id, 0.0)
+
+
+# Flat per-image cost for OpenAI image generation models (USD).
+# Standard quality 1024x1024 baseline.
+# Sources: https://openai.com/api/pricing (confirmed 2026-05-08)
+_OPENAI_IMAGE_PRICES: dict[str, float] = {
+    "gpt-image-1": 0.011,  # standard quality, 1024x1024
+}
+
+
+def cost_usd_openai_image(model_id: str) -> float:
+    return _OPENAI_IMAGE_PRICES.get(model_id, 0.0)

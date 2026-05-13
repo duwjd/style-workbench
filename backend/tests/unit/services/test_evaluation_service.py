@@ -72,7 +72,10 @@ async def test_evaluate_text_fail_below_threshold(
 
     assert result.overall_passed is False
     assert "tone_match" in result.failed_dimensions
+    # retry_guidance must be dict[str, Any] | None — check type and content
     assert result.retry_guidance is not None
+    assert isinstance(result.retry_guidance, dict)
+    assert "instruction" in result.retry_guidance
 
 
 @pytest.mark.asyncio
@@ -175,3 +178,91 @@ async def test_evaluate_result_has_evaluator_model(
 
     result = await svc.evaluate("ne_model_test")
     assert result.evaluator_model == EVALUATOR_MODEL
+
+
+# ---------------------------------------------------------------------------
+# list_by_run
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_by_run_delegates_to_repo(
+    eval_service_parts: tuple[EvaluationService, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    from datetime import UTC, datetime
+
+    from style_workbench.infra.repositories.evaluation_repo import EvaluationRecord
+
+    svc, _run_repo, eval_repo, _claude = eval_service_parts
+
+    fake_records = [
+        EvaluationRecord(
+            id="eval-1",
+            node_execution_id="ne-1",
+            node_id="node-1",
+            node_type="text_generation",
+            evaluator_model="claude-opus-4-6",
+            overall_result="passed",
+            dimensions=[],
+            retry_guidance=None,
+            human_verdict=None,
+            human_comment=None,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    ]
+    eval_repo.list_by_run = AsyncMock(return_value=fake_records)
+
+    result = await svc.list_by_run("run-abc")
+
+    eval_repo.list_by_run.assert_awaited_once_with("run-abc")
+    assert len(result) == 1
+    assert result[0].id == "eval-1"
+
+
+# ---------------------------------------------------------------------------
+# update_human_verdict
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_update_human_verdict_returns_record(
+    eval_service_parts: tuple[EvaluationService, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    from datetime import UTC, datetime
+
+    from style_workbench.infra.repositories.evaluation_repo import EvaluationRecord
+
+    svc, _run_repo, eval_repo, _claude = eval_service_parts
+
+    updated = EvaluationRecord(
+        id="eval-1",
+        node_execution_id="ne-1",
+        node_id="node-1",
+        node_type="text_generation",
+        evaluator_model="claude-opus-4-6",
+        overall_result="passed",
+        dimensions=[],
+        retry_guidance=None,
+        human_verdict="approved",
+        human_comment="Looks good",
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    eval_repo.update_human_verdict = AsyncMock(return_value=updated)
+
+    record = await svc.update_human_verdict("eval-1", "approved", "Looks good")
+
+    eval_repo.update_human_verdict.assert_awaited_once_with("eval-1", "approved", "Looks good")
+    assert record.human_verdict == "approved"
+
+
+@pytest.mark.asyncio
+async def test_update_human_verdict_not_found_raises(
+    eval_service_parts: tuple[EvaluationService, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    from style_workbench.core.errors import EvaluationNotFoundError
+
+    svc, _run_repo, eval_repo, _claude = eval_service_parts
+    eval_repo.update_human_verdict = AsyncMock(return_value=None)
+
+    with pytest.raises(EvaluationNotFoundError):
+        await svc.update_human_verdict("ghost-eval", "approved", None)

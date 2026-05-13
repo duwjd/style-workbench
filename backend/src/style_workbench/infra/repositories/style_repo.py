@@ -21,12 +21,26 @@ class StyleRecord:
     created_at: datetime
 
 
+@dataclass
+class StyleVersionRecord:
+    version_id: str
+    version: int
+    current_version: int
+    created_at: datetime
+
+
 class StyleRepository(Protocol):
     async def save(self, style: Style) -> StyleRecord: ...
     async def get(self, style_id: str) -> StyleRecord | None: ...
     async def get_version(self, style_version_id: str) -> tuple[str, DAG] | None: ...
     async def list(self, limit: int = 50, offset: int = 0) -> list[StyleRecord]: ...
     async def update_status(self, style_id: str, status: str) -> StyleRecord | None: ...
+    async def create_version(
+        self,
+        style_id: str,
+        dag: DAG,
+        brief: dict[str, Any] | None = None,
+    ) -> StyleVersionRecord: ...
 
 
 class SqlAlchemyStyleRepository:
@@ -114,6 +128,42 @@ class SqlAlchemyStyleRepository:
         orm_style.status = status
         await self._session.flush()
         return await self.get(style_id)
+
+    async def create_version(
+        self,
+        style_id: str,
+        dag: DAG,
+        brief: dict[str, Any] | None = None,
+    ) -> StyleVersionRecord:
+        # Load the style row — caller guarantees it exists, but we still fetch
+        # current_version to calculate the next version atomically.
+        stmt = select(StyleORM).where(StyleORM.id == style_id)
+        orm_style = (await self._session.execute(stmt)).scalar_one_or_none()
+        # Callers must verify existence before calling create_version.
+        assert orm_style is not None, f"Style '{style_id}' not found in create_version"
+
+        new_version = orm_style.current_version + 1
+        version_id = new_ulid()
+        orm_version = StyleVersionORM(
+            id=version_id,
+            style_id=style_id,
+            version=new_version,
+            dag=dag_to_dict(dag),
+            brief=brief,
+        )
+        self._session.add(orm_version)
+
+        orm_style.current_version = new_version
+        # updated_at is handled by the onupdate server default, but we flush explicitly
+        await self._session.flush()
+        await self._session.refresh(orm_version)
+
+        return StyleVersionRecord(
+            version_id=version_id,
+            version=new_version,
+            current_version=new_version,
+            created_at=orm_version.created_at,
+        )
 
 
 def _orm_to_domain(orm_style: StyleORM, orm_version: StyleVersionORM) -> Style:

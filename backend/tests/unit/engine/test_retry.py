@@ -17,8 +17,9 @@ def test_should_not_retry_at_limit() -> None:
 def test_apply_modifiers_appends_suffix() -> None:
     prompt = "Original prompt"
     state = RetryState(node_id="n1", attempt=0)
+    # retry_guidance is now dict[str, Any] | None; "instruction" key is extracted
     new_prompt, new_state = RetryPolicy.apply_modifiers(
-        prompt, "Fix something", ["text_absence"], state
+        prompt, {"instruction": "Fix something"}, ["text_absence"], state
     )
     assert "Original prompt" in new_prompt
     assert "Fix something" in new_prompt
@@ -50,7 +51,9 @@ def test_apply_modifiers_increments_attempt() -> None:
 
 def test_apply_modifiers_preserves_node_id() -> None:
     state = RetryState(node_id="my_node", attempt=0)
-    _, new_state = RetryPolicy.apply_modifiers("prompt", "guidance", ["composition"], state)
+    _, new_state = RetryPolicy.apply_modifiers(
+        "prompt", {"instruction": "guidance"}, ["composition"], state
+    )
     assert new_state.node_id == "my_node"
 
 
