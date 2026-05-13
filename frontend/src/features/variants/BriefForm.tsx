@@ -266,7 +266,10 @@ export function BriefForm({ onSuccess }: BriefFormProps) {
                     max={5}
                     className="bg-bg-surface border-border-default text-text-primary w-24"
                     {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
+                    onChange={(e) => {
+                      const raw = parseInt(e.target.value, 10);
+                      field.onChange(Number.isNaN(raw) ? 5 : Math.max(1, Math.min(5, raw)));
+                    }}
                   />
                 </FormControl>
                 <FormMessage />

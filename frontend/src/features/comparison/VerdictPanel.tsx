@@ -12,7 +12,7 @@ interface VerdictPanelProps {
   styleId: string;
   styleVersionId: string;
   runId: string;
-  status: "pending" | "succeeded" | "failed";
+  status: "pending" | "succeeded" | "failed" | "aborted";
 }
 
 export function VerdictPanel({

@@ -4,11 +4,11 @@ function toSnake(str: string): string {
   return str.replace(/[A-Z]/g, (l) => "_" + l.toLowerCase());
 }
 
-function toCamel(str: string): string {
+export function toCamel(str: string): string {
   return str.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
 }
 
-function deepConvert(
+export function deepConvert(
   obj: unknown,
   convert: (k: string) => string
 ): unknown {

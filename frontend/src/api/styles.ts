@@ -1,5 +1,5 @@
 import { client } from "./client";
-import type { StyleListItem, StyleDetail } from "@/types";
+import type { StyleListItem, StyleDetail, SaveDagPayload, SaveDagResponse } from "@/types";
 
 export const stylesApi = {
   getAll: () =>
@@ -11,5 +11,10 @@ export const stylesApi = {
   updateStatus: (id: string, status: string) =>
     client
       .patch(`/api/styles/${id}/status`, { status })
+      .then((r) => r.data),
+
+  saveDag: (id: string, payload: SaveDagPayload) =>
+    client
+      .post<SaveDagResponse>(`/api/styles/${id}/versions`, payload)
       .then((r) => r.data),
 };

@@ -15,12 +15,20 @@ export interface NodeInput {
   role: string;
 }
 
+export interface VariableMapping {
+  source: "user_input" | "node_output" | "constant";
+  role?: string;
+  nodeId?: string;
+  value?: string;
+}
+
 export interface DagNode {
   id: string;
   type: "text_generation" | "image_generation" | "video_generation" | "composition";
   model: { provider: string; modelId: string };
   promptTemplate: string;
   inputs: NodeInput[];
+  variableMapping?: Record<string, VariableMapping>;
 }
 
 export interface DagEdge {
@@ -63,10 +71,59 @@ export interface Run {
   id: string;
   styleVersionId: string;
   styleId: string;
-  status: "pending" | "succeeded" | "failed";
+  status: "pending" | "succeeded" | "failed" | "aborted";
   totalCost: number | null;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
   nodeExecutions: NodeExecution[];
+}
+
+// ─── F01: Retry Attempts ─────────────────────────────────────────────────────
+
+export interface RetryAttempt {
+  id: string;
+  nodeId: string;
+  attemptNumber: number;
+  promptVersionIdUsed: string | null;
+  retryGuidance: Record<string, unknown> | null;
+  evaluationId: string | null;
+  costWon: string; // Decimal → string 직렬화
+  passed: boolean | null; // null = 예산 초과로 evaluator 미호출
+  failedDimensions: string[];
+  startedAt: string; // ISO 8601
+  finishedAt: string | null;
+}
+
+export interface RetryAttemptList {
+  runId: string;
+  attempts: RetryAttempt[];
+  totalAttempts: number;
+  succeeded: boolean | null;
+}
+
+// ─── POST /api/styles/:id/versions — request body ────────────────────────────
+
+/** POST /api/styles/:id/versions — request body */
+export interface SaveDagPayload {
+  dag: {
+    nodes: Array<{
+      id: string;
+      type: string;
+      model: { provider: string; modelId: string };
+      promptTemplate: string;
+      inputs: NodeInput[];
+    }>;
+    edges: Array<{ source: string; target: string }>;
+    variables: string[];
+  };
+  brief?: string;
+}
+
+/** POST /api/styles/:id/versions — response */
+export interface SaveDagResponse {
+  versionId: string;
+  version: number;
+  currentVersion: number;
+  createdAt: string;
 }

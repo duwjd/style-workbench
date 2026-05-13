@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -16,6 +16,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Play } from "lucide-react";
 import { useUiStore } from "@/stores/uiStore";
 import { NodePalette } from "./NodePalette";
 import { PromptEditor } from "./PromptEditor";
@@ -23,7 +25,12 @@ import { TextNode } from "./nodes/TextNode";
 import { ImageNode } from "./nodes/ImageNode";
 import { VideoNode } from "./nodes/VideoNode";
 import { CompositionNode } from "./nodes/CompositionNode";
-import type { StyleDetail, DagNode } from "@/types";
+import { RunStartDialog } from "@/features/runs/RunStartDialog";
+import { Button } from "@/components/ui/button";
+import { stylesApi } from "@/api/styles";
+import { cn } from "@/lib/utils";
+import type { StyleDetail, DagNode, NodeInput, SaveDagPayload } from "@/types";
+import type { VariableMappingMap } from "./PromptEditor";
 
 const NODE_TYPES = {
   text_generation: TextNode,
@@ -40,6 +47,7 @@ function dagNodeToFlowNode(dagNode: DagNode, index: number): Node {
     data: {
       promptTemplate: dagNode.promptTemplate,
       model: dagNode.model,
+      inputs: dagNode.inputs,
     },
   };
 }
@@ -52,6 +60,43 @@ function dagEdgeToFlowEdge(dagEdge: { source: string; target: string }, index: n
   };
 }
 
+/** {variable} 형태의 변수를 모든 노드에서 추출해 중복 제거 */
+function extractVariablesFromNodes(nodes: Node[]): string[] {
+  const all: string[] = [];
+  for (const n of nodes) {
+    const template = (n.data as { promptTemplate?: string }).promptTemplate ?? "";
+    const matches = template.match(/\{([^}]+)\}/g) ?? [];
+    for (const m of matches) {
+      all.push(m.slice(1, -1));
+    }
+  }
+  return [...new Set(all)];
+}
+
+/** ReactFlow Node[]를 백엔드 DAG payload로 직렬화 */
+function buildDagPayload(nodes: Node[], edges: Edge[]): SaveDagPayload["dag"] {
+  return {
+    nodes: nodes.map((n) => {
+      const d = n.data as {
+        model?: { provider: string; modelId: string };
+        promptTemplate?: string;
+        inputs?: NodeInput[];
+        variableMapping?: VariableMappingMap;
+      };
+      return {
+        id: n.id,
+        type: n.type ?? "text_generation",
+        model: d.model ?? { provider: "", modelId: "" },
+        promptTemplate: d.promptTemplate ?? "",
+        inputs: d.inputs ?? [],
+        variableMapping: d.variableMapping ?? {},
+      };
+    }),
+    edges: edges.map((e) => ({ source: e.source, target: e.target })),
+    variables: extractVariablesFromNodes(nodes),
+  };
+}
+
 interface StyleBuilderInnerProps {
   style: StyleDetail;
 }
@@ -59,12 +104,37 @@ interface StyleBuilderInnerProps {
 function StyleBuilderInner({ style }: StyleBuilderInnerProps) {
   const { selectedNodeId, setSelectedNodeId } = useUiStore();
   const { screenToFlowPosition } = useReactFlow();
+  const queryClient = useQueryClient();
 
-  const initialNodes: Node[] = style.dag.nodes.map(dagNodeToFlowNode);
-  const initialEdges: Edge[] = style.dag.edges.map(dagEdgeToFlowEdge);
+  // dirty 상태: 마지막 저장 이후 변경이 있으면 true
+  const [isDirty, setIsDirty] = useState(false);
+  // RunStartDialog 열림 상태
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
+  // 최신 versionId 추적 — saveDag 성공 시 업데이트
+  const latestVersionIdRef = useRef<string>(style.versionId);
+
+  // style.id만 의존 — 마운트 시 초기값으로만 사용. style.dag 변경에 재계산 의도적으로 무시.
+  const initialNodes = useMemo<Node[]>(
+    () => style.dag.nodes.map(dagNodeToFlowNode),
+    [style.id] // intentional: initial value only
+  );
+  const initialEdges = useMemo<Edge[]>(
+    () => style.dag.edges.map(dagEdgeToFlowEdge),
+    [style.id] // intentional: initial value only
+  );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // nodes/edges가 바뀌면 dirty 표시 (초기 마운트는 제외)
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    setIsDirty(true);
+  }, [nodes, edges]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -91,6 +161,7 @@ function StyleBuilderInner({ style }: StyleBuilderInnerProps) {
         data: {
           promptTemplate: "",
           model: { provider: "", modelId: "" },
+          inputs: [],
         },
       };
 
@@ -113,6 +184,25 @@ function StyleBuilderInner({ style }: StyleBuilderInnerProps) {
     [setNodes]
   );
 
+  // saveDag mutation
+  const { mutate: saveDag, isPending: isSaving } = useMutation({
+    mutationFn: () =>
+      stylesApi.saveDag(style.id, { dag: buildDagPayload(nodes, edges) }),
+    onSuccess: (result) => {
+      latestVersionIdRef.current = result.versionId;
+      setIsDirty(false);
+      toast.success("저장되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["styles", style.id] });
+    },
+    onError: () => {
+      toast.error("저장에 실패했습니다.");
+    },
+  });
+
+  function openRunDialog() {
+    setRunDialogOpen(true);
+  }
+
   // 키보드 단축키
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -121,8 +211,15 @@ function StyleBuilderInner({ style }: StyleBuilderInnerProps) {
       // Cmd/Ctrl + S — 저장
       if (isMeta && e.key === "s") {
         e.preventDefault();
-        console.log("save", { nodes, edges });
-        toast.success("저장되었습니다. (DAG 저장 API 준비 중)");
+        if (!isSaving) saveDag();
+        return;
+      }
+
+      // Cmd/Ctrl + Enter — 실행 다이얼로그
+      if (isMeta && e.key === "Enter") {
+        e.preventDefault();
+        if (!isSaving) openRunDialog();
+        return;
       }
 
       // Delete / Backspace — 선택된 노드 삭제
@@ -146,7 +243,18 @@ function StyleBuilderInner({ style }: StyleBuilderInnerProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [nodes, edges, selectedNodeId, setNodes, setEdges, setSelectedNodeId]);
+  }, [
+    nodes,
+    edges,
+    selectedNodeId,
+    isSaving,
+    isDirty,
+    saveDag,
+    openRunDialog,
+    setNodes,
+    setEdges,
+    setSelectedNodeId,
+  ]);
 
   return (
     <div className="flex h-full">
@@ -162,6 +270,8 @@ function StyleBuilderInner({ style }: StyleBuilderInnerProps) {
           onDrop={onDrop}
           onDragOver={onDragOver}
           nodeTypes={NODE_TYPES}
+          nodesDraggable
+          elementsSelectable
           onNodeClick={(_, node) => setSelectedNodeId(node.id)}
           onPaneClick={() => setSelectedNodeId(null)}
           fitView
@@ -192,6 +302,43 @@ function StyleBuilderInner({ style }: StyleBuilderInnerProps) {
             <p className="text-xs text-text-tertiary">v{style.currentVersion}</p>
           </div>
         </div>
+
+        {/* 상단 우측 — dirty 인디케이터 + 실행 버튼 */}
+        <div className="absolute top-3 right-3 flex items-center gap-2 pointer-events-auto">
+          {/* dirty / saved 인디케이터 */}
+          <span
+            className={cn(
+              "text-xs flex items-center gap-1 select-none",
+              isDirty ? "text-warning" : "text-text-tertiary"
+            )}
+            aria-live="polite"
+            aria-label={isDirty ? "저장되지 않은 변경 있음" : "저장됨"}
+          >
+            <span
+              className={cn(
+                "inline-block h-1.5 w-1.5 rounded-full",
+                isDirty ? "bg-warning" : "bg-text-tertiary"
+              )}
+              aria-hidden="true"
+            />
+            {isSaving ? "저장 중..." : isDirty ? "저장 안됨" : "저장됨"}
+          </span>
+
+          {/* 실행 버튼 */}
+          <Button
+            size="sm"
+            onClick={openRunDialog}
+            disabled={isSaving}
+            aria-label="Style 실행 (Cmd+Enter)"
+            className={cn(
+              "bg-accent-500 hover:bg-accent-600 text-text-on-accent border-transparent",
+              "focus-visible:ring-accent-500"
+            )}
+          >
+            <Play className="h-3.5 w-3.5" aria-hidden="true" />
+            실행
+          </Button>
+        </div>
       </div>
 
       {selectedNodeId && (
@@ -202,6 +349,23 @@ function StyleBuilderInner({ style }: StyleBuilderInnerProps) {
           onUpdateNode={onUpdateNode}
         />
       )}
+
+      <RunStartDialog
+        open={runDialogOpen}
+        onOpenChange={setRunDialogOpen}
+        styleId={style.id}
+        nodes={nodes}
+        edges={edges.map((e) => ({ source: e.source, target: e.target }))}
+        versionId={latestVersionIdRef.current}
+        isDirty={isDirty}
+        buildDagPayload={() => buildDagPayload(nodes, edges)}
+        onAfterSave={(newVersionId) => {
+          latestVersionIdRef.current = newVersionId;
+          setIsDirty(false);
+          queryClient.invalidateQueries({ queryKey: ["styles", style.id] });
+          toast.success("저장되었습니다.");
+        }}
+      />
     </div>
   );
 }

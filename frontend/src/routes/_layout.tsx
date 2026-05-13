@@ -1,5 +1,5 @@
 import { Outlet, Link } from "react-router";
-import { Moon, Sun, Settings, Layers } from "lucide-react";
+import { Moon, Sun, Settings, Layers, BookOpen } from "lucide-react";
 import { useUiStore } from "@/stores/uiStore";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,13 @@ export function Layout() {
               className="text-sm text-text-secondary hover:text-text-primary px-2 py-1 rounded hover:bg-bg-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
             >
               Styles
+            </Link>
+            <Link
+              to="/prompts"
+              className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary px-2 py-1 rounded hover:bg-bg-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
+            >
+              <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+              Prompts
             </Link>
           </nav>
 
